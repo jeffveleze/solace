@@ -1,6 +1,6 @@
 import db from '@/db';
 import { advocates } from '@/db/schema';
-import { NewAdvocate } from '@/types/advocate';
+import { Advocate, NewAdvocate } from '@/types/advocate';
 
 export class AdvocateService {
   static async getAllAdvocates() {
@@ -11,13 +11,14 @@ export class AdvocateService {
       throw new Error('Failed to fetch advocates');
     }
   }
+
   static async seedAdvocates(advocateData: NewAdvocate[]) {
     try {
       const records = await db
         .insert(advocates)
         .values(advocateData)
         .returning();
-      return Response.json({ advocates: records });
+      return { advocates: records };
     } catch (error) {
       console.error('Error seeding advocates:', error);
       throw new Error('Failed to seed advocates');
