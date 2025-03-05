@@ -1,91 +1,168 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { API_ROUTES } from '@/config/constants';
-export default function Home() {
-  const [advocates, setAdvocates] = useState([]);
-  const [filteredAdvocates, setFilteredAdvocates] = useState([]);
+import * as React from 'react';
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
 
-  useEffect(() => {
-    console.log('fetching advocates...');
-    fetch(API_ROUTES.ADVOCATES).then((response) => {
-      response.json().then((jsonResponse) => {
-        setAdvocates(jsonResponse.data);
-        setFilteredAdvocates(jsonResponse.data);
-      });
-    });
-  }, []);
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useGetAdvocates } from '@/hooks/advocates/useGetAdvocates';
+import { Advocate } from '@/types/advocate';
+import { Loader } from 'lucide-react';
 
-  const onChange = (e) => {
-    const searchTerm = e.target.value;
-
-    document.getElementById('search-term').innerHTML = searchTerm;
-
-    console.log('filtering advocates...');
-    const filteredAdvocates = advocates.filter((advocate) => {
+export const columns: ColumnDef<Advocate>[] = [
+  {
+    accessorKey: 'firstName',
+    header: 'First Name',
+  },
+  {
+    accessorKey: 'lastName',
+    header: 'Last Name',
+  },
+  {
+    accessorKey: 'city',
+    header: 'City',
+  },
+  {
+    accessorKey: 'degree',
+    header: 'Degree',
+  },
+  {
+    accessorKey: 'specialties',
+    header: 'Specialties',
+    cell: ({ row }) => {
       return (
-        advocate.firstName.includes(searchTerm) ||
-        advocate.lastName.includes(searchTerm) ||
-        advocate.city.includes(searchTerm) ||
-        advocate.degree.includes(searchTerm) ||
-        advocate.specialties.includes(searchTerm) ||
-        advocate.yearsOfExperience.includes(searchTerm)
+        <div className="flex flex-wrap gap-2 my-2">
+          {row.original.specialties
+            ? (row.original.specialties as string[]).map(
+                (specialty: string) => (
+                  <div
+                    key={specialty}
+                    className="bg-gray-100 px-2 py-1 rounded-md"
+                  >
+                    {specialty}
+                  </div>
+                )
+              )
+            : null}
+        </div>
       );
-    });
+    },
+  },
+  {
+    accessorKey: 'yearsOfExperience',
+    header: 'Years of Experience',
+  },
+  {
+    accessorKey: 'phoneNumber',
+    header: 'Phone Number',
+  },
+];
 
-    setFilteredAdvocates(filteredAdvocates);
-  };
+const globalFilter = (row: any, columnId: string, filterValue: string) => {
+  const value = row.getValue(columnId);
+  if (value === null || value === undefined) return false;
+  return String(value)
+    .toLowerCase()
+    .includes(String(filterValue).toLowerCase());
+};
 
-  const onClick = () => {
-    console.log(advocates);
-    setFilteredAdvocates(advocates);
-  };
+const Home = () => {
+  const { advocates, isLoading, error } = useGetAdvocates();
+  const table = useReactTable({
+    data: advocates || [],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    filterFns: {
+      global: globalFilter,
+    },
+    globalFilterFn: globalFilter,
+  });
+
+  if (isLoading)
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader className="animate-spin h-10 w-10" />
+      </div>
+    );
+  if (error) return <div>Error: {error.message}</div>;
+  if (!advocates) return <div>No advocates found</div>;
 
   return (
-    <main style={{ margin: '24px' }}>
-      <h1>Solace Advocates</h1>
-      <br />
-      <br />
-      <div>
-        <p>Search</p>
-        <p>
-          Searching for: <span id="search-term"></span>
-        </p>
-        <input style={{ border: '1px solid black' }} onChange={onChange} />
-        <button onClick={onClick}>Reset Search</button>
+    <div className="w-full p-4">
+      <div className="flex items-center py-4">
+        <Input
+          placeholder="Filter advocates..."
+          value={table.getState().globalFilter || ''}
+          onChange={(event) => table.setGlobalFilter(event.target.value)}
+          className="max-w-sm"
+        />
       </div>
-      <br />
-      <br />
-      <table>
-        <thead>
-          <th>First Name</th>
-          <th>Last Name</th>
-          <th>City</th>
-          <th>Degree</th>
-          <th>Specialties</th>
-          <th>Years of Experience</th>
-          <th>Phone Number</th>
-        </thead>
-        <tbody>
-          {filteredAdvocates.map((advocate) => {
-            return (
-              <tr>
-                <td>{advocate.firstName}</td>
-                <td>{advocate.lastName}</td>
-                <td>{advocate.city}</td>
-                <td>{advocate.degree}</td>
-                <td>
-                  {advocate.specialties.map((s) => (
-                    <div>{s}</div>
+      <div>
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && 'selected'}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
                   ))}
-                </td>
-                <td>{advocate.yearsOfExperience}</td>
-                <td>{advocate.phoneNumber}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </main>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
-}
+};
+
+export default Home;
