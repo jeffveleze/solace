@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, ChangeEvent } from 'react';
 import {
-  ColumnDef,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-
-import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -18,101 +15,36 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useGetAdvocates } from '@/hooks/advocates/useGetAdvocates';
-import { Advocate } from '@/types/advocate';
-import { Loader, Search } from 'lucide-react';
-
-export const columns: ColumnDef<Advocate>[] = [
-  {
-    accessorKey: 'firstName',
-    header: 'First Name',
-    cell: ({ row }) => (
-      <div className="font-medium">{row.getValue('firstName')}</div>
-    ),
-  },
-  {
-    accessorKey: 'lastName',
-    header: 'Last Name',
-  },
-  {
-    accessorKey: 'city',
-    header: 'City',
-    cell: ({ row }) => (
-      <div className="text-gray-500">{row.getValue('city')}</div>
-    ),
-  },
-  {
-    accessorKey: 'degree',
-    header: 'Degree',
-    cell: ({ row }) => (
-      <div className="italic text-gray-600">{row.getValue('degree')}</div>
-    ),
-  },
-  {
-    accessorKey: 'specialties',
-    header: 'Specialties',
-    cell: ({ row }) => {
-      return (
-        <div className="flex flex-wrap gap-1 my-1">
-          {row.original.specialties
-            ? (row.original.specialties as string[]).map(
-                (specialty: string) => (
-                  <div
-                    key={specialty}
-                    className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200"
-                  >
-                    {specialty}
-                  </div>
-                )
-              )
-            : null}
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: 'yearsOfExperience',
-    header: 'Experience',
-    cell: ({ row }) => (
-      <div className="text-center font-semibold">
-        {row.getValue('yearsOfExperience')} yrs
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'phoneNumber',
-    header: 'Phone Number',
-    cell: ({ row }) => (
-      <div className="font-mono text-sm">{row.getValue('phoneNumber')}</div>
-    ),
-  },
-];
+import { columns } from './_components/tableColumns';
+import { PageLoader } from './_components/loader';
+import { PageError } from './_components/error';
+import { EmptySearch } from './_components/emptySearch';
+import { SearchBar } from './_components/header';
+import { Footer } from './_components/footer';
 
 const Home = () => {
   const [inputValue, setInputValue] = useState<string>('');
   const [searchValue, setSearchValue] = useState<string | undefined>(undefined);
   const { advocates, isLoading, error } = useGetAdvocates(searchValue);
+
   const table = useReactTable({
     data: advocates || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const handleSearchBarKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setInputValue(event.target.value);
+  };
+
+  const onSearchBarKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       setSearchValue(inputValue.trim());
     }
   };
 
-  if (isLoading)
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader className="animate-spin h-10 w-10 text-blue-600" />
-      </div>
-    );
-  if (error)
-    return <div className="p-8 text-red-500">Error: {error.message}</div>;
-  if (!advocates)
-    return <div className="p-8 text-gray-500">No advocates found</div>;
+  if (isLoading) return <PageLoader />;
+  if (error) return <PageError message={error.message} />;
 
   return (
     <div className="w-full p-6 max-w-7xl mx-auto">
@@ -121,20 +53,11 @@ const Home = () => {
       </h1>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-4 border-b">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search advocates..."
-              value={inputValue}
-              onChange={(event) => {
-                setInputValue(event.target.value);
-              }}
-              onKeyDown={handleSearchBarKeyDown}
-              className="pl-10 pr-4 py-2 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-md"
-            />
-          </div>
-        </div>
+        <SearchBar
+          inputValue={inputValue}
+          onInputChange={onInputChange}
+          onSearchBarKeyDown={onSearchBarKeyDown}
+        />
 
         <div className="overflow-x-auto">
           <Table>
@@ -179,23 +102,16 @@ const Home = () => {
                   </TableRow>
                 ))
               ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center text-gray-500"
-                  >
-                    No results found.
-                  </TableCell>
-                </TableRow>
+                <EmptySearch colSpan={columns.length} />
               )}
             </TableBody>
           </Table>
         </div>
 
-        <div className="py-3 px-4 bg-gray-50 border-t text-sm text-gray-500">
-          Showing {table.getRowModel().rows.length} of {advocates.length}{' '}
-          advocates
-        </div>
+        <Footer
+          numRows={table.getRowModel().rows.length}
+          totalRows={advocates?.length || 0}
+        />
       </div>
     </div>
   );
