@@ -1,11 +1,10 @@
 'use client';
 
-import * as React from 'react';
+import { useState, KeyboardEvent } from 'react';
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 
@@ -88,34 +87,21 @@ export const columns: ColumnDef<Advocate>[] = [
   },
 ];
 
-const globalFilter = (row: any, columnId: string, filterValue: string) => {
-  const value = row.getValue(columnId);
-  if (value === null || value === undefined) return false;
-
-  // Handle array values (like specialties)
-  if (Array.isArray(value)) {
-    return value.some((item) =>
-      String(item).toLowerCase().includes(String(filterValue).toLowerCase())
-    );
-  }
-
-  return String(value)
-    .toLowerCase()
-    .includes(String(filterValue).toLowerCase());
-};
-
 const Home = () => {
-  const { advocates, isLoading, error } = useGetAdvocates();
+  const [inputValue, setInputValue] = useState<string>('');
+  const [searchValue, setSearchValue] = useState<string | undefined>(undefined);
+  const { advocates, isLoading, error } = useGetAdvocates(searchValue);
   const table = useReactTable({
     data: advocates || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    filterFns: {
-      global: globalFilter,
-    },
-    globalFilterFn: globalFilter,
   });
+
+  const handleSearchBarKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      setSearchValue(inputValue.trim());
+    }
+  };
 
   if (isLoading)
     return (
@@ -140,8 +126,11 @@ const Home = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Search advocates..."
-              value={table.getState().globalFilter || ''}
-              onChange={(event) => table.setGlobalFilter(event.target.value)}
+              value={inputValue}
+              onChange={(event) => {
+                setInputValue(event.target.value);
+              }}
+              onKeyDown={handleSearchBarKeyDown}
               className="pl-10 pr-4 py-2 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-md"
             />
           </div>

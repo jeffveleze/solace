@@ -6,7 +6,9 @@ const setup = () => {
     console.error('DATABASE_URL is not set');
     return {
       select: () => ({
-        from: () => [],
+        from: () => ({
+          where: () => [],
+        }),
       }),
       insert: (table: any) => ({
         values: (data: any) => ({
