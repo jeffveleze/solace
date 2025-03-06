@@ -1,91 +1,120 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { API_ROUTES } from '@/config/constants';
-export default function Home() {
-  const [advocates, setAdvocates] = useState([]);
-  const [filteredAdvocates, setFilteredAdvocates] = useState([]);
+import { useState, KeyboardEvent, ChangeEvent } from 'react';
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useGetAdvocates } from '@/hooks/advocates/useGetAdvocates';
+import { columns } from './_components/tableColumns';
+import { PageLoader } from './_components/loader';
+import { PageError } from './_components/error';
+import { EmptySearch } from './_components/emptySearch';
+import { SearchBar } from './_components/header';
+import { Footer } from './_components/footer';
 
-  useEffect(() => {
-    console.log('fetching advocates...');
-    fetch(API_ROUTES.ADVOCATES).then((response) => {
-      response.json().then((jsonResponse) => {
-        setAdvocates(jsonResponse.data);
-        setFilteredAdvocates(jsonResponse.data);
-      });
-    });
-  }, []);
+const Home = () => {
+  const [inputValue, setInputValue] = useState<string>('');
+  const [searchValue, setSearchValue] = useState<string | undefined>(undefined);
+  const { advocates, isLoading, error } = useGetAdvocates(searchValue);
 
-  const onChange = (e) => {
-    const searchTerm = e.target.value;
+  const table = useReactTable({
+    data: advocates || [],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
-    document.getElementById('search-term').innerHTML = searchTerm;
-
-    console.log('filtering advocates...');
-    const filteredAdvocates = advocates.filter((advocate) => {
-      return (
-        advocate.firstName.includes(searchTerm) ||
-        advocate.lastName.includes(searchTerm) ||
-        advocate.city.includes(searchTerm) ||
-        advocate.degree.includes(searchTerm) ||
-        advocate.specialties.includes(searchTerm) ||
-        advocate.yearsOfExperience.includes(searchTerm)
-      );
-    });
-
-    setFilteredAdvocates(filteredAdvocates);
+  const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setInputValue(event.target.value);
   };
 
-  const onClick = () => {
-    console.log(advocates);
-    setFilteredAdvocates(advocates);
+  const onSearchBarKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      setSearchValue(inputValue.trim());
+    }
   };
+
+  if (isLoading) return <PageLoader />;
+  if (error) return <PageError message={error.message} />;
 
   return (
-    <main style={{ margin: '24px' }}>
-      <h1>Solace Advocates</h1>
-      <br />
-      <br />
-      <div>
-        <p>Search</p>
-        <p>
-          Searching for: <span id="search-term"></span>
-        </p>
-        <input style={{ border: '1px solid black' }} onChange={onChange} />
-        <button onClick={onClick}>Reset Search</button>
-      </div>
-      <br />
-      <br />
-      <table>
-        <thead>
-          <th>First Name</th>
-          <th>Last Name</th>
-          <th>City</th>
-          <th>Degree</th>
-          <th>Specialties</th>
-          <th>Years of Experience</th>
-          <th>Phone Number</th>
-        </thead>
-        <tbody>
-          {filteredAdvocates.map((advocate) => {
-            return (
-              <tr>
-                <td>{advocate.firstName}</td>
-                <td>{advocate.lastName}</td>
-                <td>{advocate.city}</td>
-                <td>{advocate.degree}</td>
-                <td>
-                  {advocate.specialties.map((s) => (
-                    <div>{s}</div>
+    <div className="w-full p-6 max-w-7xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+        Advocates Directory
+      </h1>
+
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <SearchBar
+          inputValue={inputValue}
+          onInputChange={onInputChange}
+          onSearchBarKeyDown={onSearchBarKeyDown}
+        />
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-gray-50">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="hover:bg-gray-50">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
                   ))}
-                </td>
-                <td>{advocate.yearsOfExperience}</td>
-                <td>{advocate.phoneNumber}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </main>
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row, i) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && 'selected'}
+                    className={`
+                      hover:bg-gray-50 transition-colors
+                      ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                    `}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="py-3 px-4">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <EmptySearch colSpan={columns.length} />
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <Footer
+          numRows={table.getRowModel().rows.length}
+          totalRows={advocates?.length || 0}
+        />
+      </div>
+    </div>
   );
-}
+};
+
+export default Home;
